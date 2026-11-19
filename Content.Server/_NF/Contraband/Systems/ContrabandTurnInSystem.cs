@@ -164,29 +164,24 @@ public sealed partial class ContrabandTurnInSystem : SharedContrabandTurnInSyste
         }
     }
 
-    private bool CanSell(EntityUid uid, TransformComponent xform)
+    private bool CanSell(EntityUid uid, TransformComponent xform, bool topLevel = true)
     {
-        if (_mobQuery.HasComponent(uid))
-        {
-            if (_mobQuery.GetComponent(uid).CurrentState == MobState.Dead) // Allow selling alive prisoners
-            {
-                return false;
-            }
-            return true;
-        }
+        // Look for blacklisted items (e.g. players) and stop the selling of them or anything holding them.
+        if (_blacklistQuery.HasComponent(uid))
+            return false;
+
+        // Allow selling alive prisoners, but only directly: a mob inside something else blocks the sale.
+        if (_mobQuery.TryComp(uid, out var mob) && (!topLevel || mob.CurrentState == MobState.Dead))
+            return false;
 
         // Recursively check for mobs at any point.
         var children = xform.ChildEnumerator;
         while (children.MoveNext(out var child))
         {
-            if (!CanSell(child, _xformQuery.GetComponent(child)))
+            if (!CanSell(child, _xformQuery.GetComponent(child), false))
                 return false;
         }
-        // Look for blacklisted items and stop the selling of the container.
-        if (_blacklistQuery.HasComponent(uid))
-        {
-            return false;
-        }
+
         return true;
     }
 
